@@ -1,0 +1,154 @@
+# Imports necessários
+import spacy
+import language_tool_python
+from textblob import TextBlob
+
+# Carrega o modelo de língua portuguesa do spacy e o corretor gramatical
+nlp = spacy.load("pt_core_news_sm")
+tool = language_tool_python.LanguageTool('pt-BR')
+
+# -------------------------------
+# FUNÇÕES DE AVALIAÇÃO DAS COMPETÊNCIAS DO ENEM
+# -------------------------------
+
+# Competência 1: Norma Padrão (gramática e ortografia)
+def avaliar_competencia_1(texto):
+    """
+    Avalia o domínio da norma padrão da língua portuguesa.
+    Retorna nota e a quantidade de erros gramaticais e graves.
+    """
+    erros = tool.check(texto)
+    erros_gramaticais = len(erros)
+    
+    # Classificação dos erros em leves, moderados e graves
+    erros_graves = sum(1 for erro in erros if "Concordância" in erro.ruleIssueType or "Pontuação" in erro.ruleIssueType)
+    
+    # Penalização maior para erros graves
+    nota = max(0, 200 - (erros_graves * 15 + (erros_gramaticais - erros_graves) * 5))
+    
+    return nota, erros_gramaticais, erros_graves
+
+# Competência 2: Coesão e Coerência
+def avaliar_competencia_2(texto):
+    """
+    Avalia a coerência e coesão do texto.
+    Utiliza análise de polaridade para coerência e verificações de conectivos.
+    """
+    doc = nlp(texto)
+    blob = TextBlob(texto)
+    coerencia = blob.sentiment.polarity
+    
+    # Verificação de conectivos
+    conectivos = [token.text for token in doc if token.pos_ == "SCONJ" or token.pos_ == "CCONJ"]
+    nota_conectivos = min(200, len(conectivos) * 20)
+    
+    # Nota combinada para coerência e uso de conectivos
+    nota = int((coerencia + 1) * 100) + nota_conectivos
+    return min(nota, 200), coerencia, conectivos
+
+# Competência 3: Argumentação e Estruturação do texto
+def avaliar_competencia_3(texto):
+    """
+    Avalia a argumentação e desenvolvimento das ideias.
+    Verifica o uso de termos argumentativos.
+    """
+    doc = nlp(texto)
+    argumentos = ["porque", "portanto", "assim", "logo", "de acordo", "conforme"]
+    uso_argumentativo = sum(1 for token in doc if token.text.lower() in argumentos)
+    nota_argumentacao = min(200, uso_argumentativo * 30)
+    
+    return nota_argumentacao, uso_argumentativo
+
+# Competência 4: Coesão textual avançada
+def avaliar_competencia_4(texto):
+    """
+    Avalia o uso de mecanismos coesivos entre parágrafos, 
+    garantindo uma progressão textual lógica.
+    """
+    doc = nlp(texto)
+    conectivos_avancados = ["além disso", "dessa forma", "por outro lado", "assim como", "por conseguinte"]
+    uso_conectivos_avancados = sum(1 for sent in doc.sents for conectivo in conectivos_avancados if conectivo in sent.text.lower())
+    
+    nota_coesao = min(200, uso_conectivos_avancados * 25)
+    return nota_coesao, uso_conectivos_avancados
+
+# Competência 5: Proposta de Intervenção
+def avaliar_competencia_5(texto):
+    """
+    Verifica se a proposta de intervenção está completa e bem estruturada.
+    Avalia se os cinco elementos essenciais estão presentes: ação, agente, meio, detalhamento, finalidade.
+    """
+    proposta_estrutura = ["ação", "agente", "meio", "detalhamento", "finalidade"]
+    proposta_presente = all(item in texto.lower() for item in proposta_estrutura)
+    nota = 200 if proposta_presente else 100
+    
+    return nota, proposta_presente
+
+# -------------------------------
+# FUNÇÃO PRINCIPAL PARA AVALIAR A REDAÇÃO
+# -------------------------------
+
+def avaliar_redacao(texto):
+    """
+    Avalia o texto em todas as cinco competências e gera um relatório detalhado de feedback.
+    """
+    nota_c1, erros_c1, erros_graves_c1 = avaliar_competencia_1(texto)
+    nota_c2, coerencia_c2, conectivos_c2 = avaliar_competencia_2(texto)
+    nota_c3, uso_argumentativo_c3 = avaliar_competencia_3(texto)
+    nota_c4, uso_conectivos_avancados_c4 = avaliar_competencia_4(texto)
+    nota_c5, proposta_presente_c5 = avaliar_competencia_5(texto)
+    
+    # Calcula a nota total baseada nas cinco competências
+    nota_total = nota_c1 + nota_c2 + nota_c3 + nota_c4 + nota_c5
+    resultado = {
+        "Nota Competência 1": nota_c1,
+        "Erros Gramáticos": erros_c1,
+        "Erros Graves": erros_graves_c1,
+        "Nota Competência 2": nota_c2,
+        "Coerência": coerencia_c2,
+        "Conectivos": conectivos_c2,
+        "Nota Competência 3": nota_c3,
+        "Uso Argumentativo": uso_argumentativo_c3,
+        "Nota Competência 4": nota_c4,
+        "Conectivos Avançados": uso_conectivos_avancados_c4,
+        "Nota Competência 5": nota_c5,
+        "Proposta Completa": proposta_presente_c5,
+        "Nota Total": nota_total
+    }
+    
+    # Feedback detalhado
+    feedback = gerar_feedback(resultado)
+    
+    return resultado, feedback
+
+# -------------------------------
+# FUNÇÃO DE FEEDBACK DETALHADO
+# -------------------------------
+
+def gerar_feedback(resultado):
+    """
+    Gera feedback detalhado com base nas notas e métricas das competências.
+    """
+    feedback = ""
+    if resultado["Nota Competência 1"] < 200:
+        feedback += "Competência 1: Verifique a gramática e ortografia, especialmente com foco em concordância e pontuação.\n"
+    if resultado["Nota Competência 2"] < 200:
+        feedback += "Competência 2: Tente melhorar a coerência textual e o uso de conectivos para uma transição mais suave entre as ideias.\n"
+    if resultado["Nota Competência 3"] < 200:
+        feedback += "Competência 3: Trabalhe na argumentação, utilizando mais expressões argumentativas para sustentar suas ideias.\n"
+    if resultado["Nota Competência 4"] < 200:
+        feedback += "Competência 4: Use conectivos avançados para aprimorar a coesão entre parágrafos e ideias.\n"
+    if resultado["Nota Competência 5"] < 200:
+        feedback += "Competência 5: Garanta que sua proposta de intervenção inclua todos os elementos: ação, agente, meio, detalhamento e finalidade.\n"
+    
+    feedback += f"Nota Total: {resultado['Nota Total']} / 1000. Continue praticando para melhorar ainda mais!"
+    return feedback
+
+# -------------------------------
+# EXEMPLO DE USO
+# -------------------------------
+
+texto_redacao = "Insira a redação aqui..."
+resultado, feedback = avaliar_redacao(texto_redacao)
+print("Resultado da Avaliação:", resultado)
+print("Feedback Detalhado:\n", feedback)
